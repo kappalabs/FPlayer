@@ -1,0 +1,81 @@
+<project name="Fplayer" default="default" basedir=".">
+    <fail message="Please build using Ant 1.8.0 or higher.">
+        <condition>
+            <not>
+                <antversion atleast="1.8.0"/>
+            </not>
+        </condition>
+    </fail>
+
+    <target name="default" depends="clean,jar,javadoc"/>
+
+    <!-- set global properties for this build -->
+    <property name="src.dir"     value="src"/>
+    <property name="build.dir"   value="build"/>
+    <property name="lib.dir"     value="lib"/>
+    <property name="main-class"  value="com.kappa.fplayer.FPlayer"/>
+    <property name="classes.dir" value="${build.dir}/classes"/>
+    <property name="jar.dir"     value="${build.dir}/jar"/>
+    <property name="doc.dir"     value="${build.dir}/javadoc"/>
+
+    <path id="classpath">
+        <fileset dir="${lib.dir}" includes="**/*.jar"/>
+    </path>
+
+    <target name="compile">
+        <mkdir dir="${classes.dir}"/>
+        <javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="classpath"/>
+    </target>
+
+    <path id="build.classpath">
+        <fileset dir="${basedir}">
+           <include name="${lib.dir}/*.jar"/>
+        </fileset>
+    </path>
+
+    <pathconvert property="manifest.classpath" pathsep=" ">
+        <path refid="build.classpath"/>
+        <mapper>
+            <chainedmapper>
+                <flattenmapper/>
+                <globmapper from="*.jar" to="${lib.dir}/*.jar"/>
+            </chainedmapper>
+        </mapper>
+    </pathconvert>
+
+    <target name="jar" depends="compile">
+        <mkdir dir="${jar.dir}"/>
+        <copy todir="${jar.dir}">
+            <fileset dir="${basedir}">
+                <include name="${lib.dir}/*.jar"/>
+            </fileset>
+        </copy>
+        <jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+            <manifest>
+               <attribute name="Main-Class" value="${main-class}"/>
+               <attribute name="Class-Path" value="${manifest.classpath}"/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="run" depends="jar">
+        <java fork="true" classname="${main-class}">
+            <classpath>
+                <path refid="classpath"/>
+                <path location="${jar.dir}/${ant.project.name}.jar"/>
+            </classpath>
+        </java>
+    </target>
+
+    <!-- Generate javadocs for current project into ${doc.dir} -->
+    <target name="javadoc" description="generate documentation">
+        <javadoc sourcepath="${src.dir}" destdir="${doc.dir}" classpathref="classpath" overview="${src.dir}/overview.html"/>
+    </target>
+
+    <target name="clean-build" depends="clean,jar"/>
+
+    <target name="clean">
+        <delete dir="${build.dir}"/>
+    </target>
+
+</project>
