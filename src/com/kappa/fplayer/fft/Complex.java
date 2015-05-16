@@ -39,6 +39,16 @@ public class Complex {
         this.real = real;
         this.imaginary = imaginary;
     }
+    
+    /**
+     * Set this complex number to values of given complex nuber.
+     * 
+     * @param c to which number this one should equal
+     */
+    public void set(Complex c) {
+        this.real = c.getReal();
+        this.imaginary = c.getImaginary();
+    }
 
     /**
      * Retrieve imaginary part of this complex number.
@@ -113,6 +123,22 @@ public class Complex {
         double im = c1.getReal()*c2.getImaginary() + c1.getImaginary()*c2.getReal();
 
         return new Complex(re, im);
+    }
+    
+    /**
+     * Performs an complex multiplicaion on given two complex numbers.
+     * Standard complex multiplication, resulting number is set into the first parameter.
+     * 
+     * @param c1 first complex number
+     * @param c2 second complex number
+     * @return the first complex number containing the result
+     */
+    public static Complex complexMultToFirst(Complex c1, Complex c2) {
+        double re = c1.getReal()*c2.getReal() - c1.getImaginary()*c2.getImaginary();
+        double im = c1.getReal()*c2.getImaginary() + c1.getImaginary()*c2.getReal();
+        c1.set(re, im);
+
+        return c1;
     }
     
     /**

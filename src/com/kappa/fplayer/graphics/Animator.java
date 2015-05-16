@@ -5,13 +5,13 @@ import com.kappa.fplayer.fft.Complex;
 import com.kappa.fplayer.sound.Band;
 import com.kappa.fplayer.sound.SoundReader;
 import java.awt.Color;
-import java.awt.EventQueue;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
 import java.awt.image.BufferedImage;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 /**
@@ -50,20 +50,24 @@ public class Animator extends JPanel implements Runnable {
     
     private final int octaveDenum;
     private final boolean normalize = false;
+    private final Color backgroundColor;
     
     private Timer erasureTimer;
-    private int bufferLength, sampleRate;
+    private int bufferLength;
+    private float sampleRate;
     private BufferedImage buffImage;
     private Graphics2D graphics;
     protected GraphicsConfiguration gc;
     
     /**
      * Initialize default values and prepare towers with their bands.
+     * @param backgroundColor desired color of the background of this panel
      */
-    public Animator() {
+    public Animator(Color backgroundColor) {
         octaveDenum = DEFAULT_OCTAVE_DENUM;
         bufferLength = SoundReader.DEFAULT_BUFFER_LENGTH;
         sampleRate = SoundReader.DEFAULT_SAMPLE_RATE;
+        this.backgroundColor = backgroundColor;
         init();
     }
     
@@ -72,14 +76,6 @@ public class Animator extends JPanel implements Runnable {
      */
     private void init() {
         gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
-        
-        bands = Band.countISOBands(octaveDenum, DEFAULT_OCTAVE_BASE);
-        
-        towers = new Tower[bands.length];
-        for (int i=0; i < towers.length; i++) {
-            towers[i] = new Tower(bands[i]);
-            towers[i].setLabel(bands[i].toString());
-        }
         
         // Timer, which will wait for the towers to fall down
         erasureTimer = new Timer(42, (e) -> {
@@ -101,7 +97,12 @@ public class Animator extends JPanel implements Runnable {
             if (done) {
                 erasureTimer.stop();
             }
-            updateState();
+            try {
+                updateState();
+            } catch (Exception ex) {
+                System.err.println(ex);
+                erasureTimer.stop();
+            }
         });
     }
     
@@ -113,7 +114,7 @@ public class Animator extends JPanel implements Runnable {
      * @param bufferLength maximum length of input data
      * @param sampleRate number of samples in one second
      */
-    public void setAudioInfo(int bufferLength, int sampleRate) {
+    public void setAudioInfo(int bufferLength, float sampleRate) {
         this.bufferLength = bufferLength;
         this.sampleRate = sampleRate;
         
@@ -153,11 +154,13 @@ public class Animator extends JPanel implements Runnable {
      * window resize etc. and adapt to that situation.
      */
     private void checkGraphics() {
-        if (buffImage == null || graphics == null || (buffImage.getWidth() != getWidth() || buffImage.getHeight() != getHeight())) {
-            buffImage = gc.createCompatibleImage(getWidth(), getHeight());
-            graphics = buffImage.createGraphics();
-            graphics.setColor(Color.WHITE);
-            graphics.fillRect(0, 0, buffImage.getWidth(), buffImage.getHeight());
+        synchronized(this) {
+            if (buffImage == null || graphics == null || (buffImage.getWidth() != getWidth() || buffImage.getHeight() != getHeight())) {
+                buffImage = gc.createCompatibleImage(getWidth(), getHeight());
+                graphics = buffImage.createGraphics();
+                graphics.setColor(backgroundColor);
+                graphics.fillRect(0, 0, buffImage.getWidth(), buffImage.getHeight());
+            }
         }
     }
     
@@ -173,8 +176,12 @@ public class Animator extends JPanel implements Runnable {
      * 
      * <p>Other option is to use normalization. The negative side of that, is that
      * even a noise will be shown as 'loud'.
+     * @throws java.lang.Exception if method setAudioInfo() was not called yet
      */
-    public void updateState() {
+    public void updateState() throws Exception {
+        if (bands == null || towers == null) {
+            throw new Exception("updateState(): audio info is not set, call setAudioInfo() first!");
+        }
         checkGraphics();
         
         double min = 0, max = Double.MIN_VALUE;
@@ -201,7 +208,7 @@ public class Animator extends JPanel implements Runnable {
             // Find the biggest value in the band which this tower covers
             for (int i = b.frequencyStart; i < b.frequencyEnd; i++) {
                 // Index into data[] does not refers to the same frequency directly, transformation must be performed
-                double nvalue = DEFAULT_SCALE_FACTOR * Complex.decibelv2(data[(i*bufferLength/sampleRate)]);
+                double nvalue = DEFAULT_SCALE_FACTOR * Complex.decibelv2(data[(i*bufferLength/(int)sampleRate)]);
                 if (normalize) {
                     nvalue = normalize(min, max, nvalue);
                 }
@@ -221,11 +228,13 @@ public class Animator extends JPanel implements Runnable {
             }
         }
         // Paint the new state of every tower into the image buffer
-        int towerLen = getWidth()/towers.length;
-        for (int i=0; i < towers.length; i++) {
-            towers[i].render(graphics, i*towerLen, 0, towerLen, getHeight());
+        float towerLen = (float)getWidth()/towers.length;
+        synchronized(this) {
+            for (int i=0; i < towers.length; i++) {
+                towers[i].render(graphics, backgroundColor, (int)(i*towerLen), 0, (int)towerLen, getHeight());
+            }
         }
-        EventQueue.invokeLater(this);
+        SwingUtilities.invokeLater(this);
     }
 
     /**
@@ -236,8 +245,10 @@ public class Animator extends JPanel implements Runnable {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        if (buffImage != null) {
-            g.drawImage(buffImage, 0, 0, null);
+        synchronized(this) {
+            if (buffImage != null) {
+                g.drawImage(buffImage, 0, 0, null);
+            }
         }
     }
     

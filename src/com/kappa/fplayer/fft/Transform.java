@@ -84,7 +84,8 @@ public class Transform {
      */
     public static void applyWindow(Complex[] complIn, double[] window) {
         for (int i=0; i < complIn.length && i < window.length; i++) {
-            complIn[i] = new Complex(complIn[i].getReal() * window[i], 0);
+            complIn[i].setReal(complIn[i].getReal() * window[i]);
+            complIn[i].setImaginary(complIn[i].getImaginary() * window[i]);
         }
     }
     
@@ -95,9 +96,7 @@ public class Transform {
      * @param ca input array of complex numbers i.e. sound track
      * @return transformed array of complex numbers
      */
-    private static Complex[] recFFT(Complex[] ca) {
-        /*  Round the length of input array to the nearest power of 2 */
-        int n = getPow(ca.length, 2);
+    private static Complex[] recFFT(Complex[] ca, int n) {
         Complex[] cy = new Complex[n];
 
         if (n == 1) {
@@ -115,19 +114,19 @@ public class Transform {
          *   "ca_l" - elements with odd index from array 'ca'
          */
         int i;
-        for (i=0; i<n/2; i++) {
+        for (i=0; i < n/2; i++) {
             ca_s[i] = ca[2*i];
             ca_l[i] = ca[2*i + 1];
         }
 
         /* Recursion ready to run */
-        cy_s = recFFT(ca_s);
-        cy_l = recFFT(ca_l);
+        cy_s = recFFT(ca_s, n/2);
+        cy_l = recFFT(ca_l, n/2);
 
         /* Use data computed in recursion */
         for (i=0; i < n/2; i++) {
             /* Multiply elements of 'cy_l' by the twiddle factors e^(-2*pi*i/N * k) */
-            cy_l[i] = Complex.complexMult(Complex.polarToComplex(1, -2*Math.PI*i/n), cy_l[i]);
+            Complex.complexMultToFirst(cy_l[i], Complex.polarToComplex(1, -2*Math.PI*i/n));
         }
         for (i=0; i < n/2; i++) {
             cy[i] = Complex.complexAdd(cy_s[i], cy_l[i]);
@@ -144,7 +143,9 @@ public class Transform {
      * @return transformed complex data array
      */
     public static Complex[] transform(Complex[] ca) {
-        return recFFT(ca);
+        /*  Round the length of input array to the nearest power of 2 */
+        int n = getPow(ca.length, 2);
+        return recFFT(ca, n);
     }
     
 }

@@ -3,9 +3,8 @@ package com.kappa.fplayer.sound;
 
 import com.kappa.fplayer.fft.Complex;
 import com.kappa.fplayer.fft.Transform;
-import java.io.BufferedInputStream;
+import com.kappa.fplayer.graphics.Animator;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import javax.sound.sampled.AudioFormat;
@@ -33,31 +32,20 @@ public class AudioReader extends SoundReader {
     private AudioInputStream    ais;
     private SourceDataLine      sdl;
     private Complex[]           cdata;              
-    private final byte[]        rawData;
+    private byte[]              rawData;
+    private final File          audioFile;
     
 
     /**
      * Prepare new Sound Reader for reading the input audio file.
      * Initialization will prepare window function and buffer for reading the input.
      * 
+     * @param animator animator, which will be painting the results
      * @param audioFile audio file, which will be readed
      */
-    public AudioReader(File audioFile) {
+    public AudioReader(Animator animator, File audioFile) {
+        super(animator);
         this.audioFile = audioFile;
-        windowType = DEFAULT_WINDOW_TYPE;
-        bufferLength = DEFAULT_BUFFER_LENGTH;
-        switch (windowType) {
-            case hanning:
-                window = Transform.hanningWindow(bufferLength);
-                break;
-            case hamming:
-                window = Transform.hammingWindow(bufferLength, 0.53836, 0.46164);
-                break;
-            default:
-                // No window usage (rectangular window has neutral effect)
-                window = Transform.rectangularWindow(bufferLength);
-        }
-        rawData = new byte[bufferLength];
     }
     
     /**
@@ -97,22 +85,16 @@ public class AudioReader extends SoundReader {
         if (audioFile == null) {
             throw new FileNotFoundException();
         }
-        ais = AudioSystem.getAudioInputStream(new BufferedInputStream(new FileInputStream(audioFile)));
-
-        AudioFormat sourceAF = ais.getFormat();
-        int ssib = sourceAF.getSampleSizeInBits();
-        // If ssib is not obtainable or cannot be stored as Integer (next standards are 32, 48, ...)
-        if (ssib <= 0 || ssib > 16) {
-            ssib = 16;
-        }
+        AudioInputStream in = AudioSystem.getAudioInputStream(audioFile);
+        AudioFormat sourceAF = in.getFormat();
 
         // Desired format of the input stream
         AudioFormat targetAF = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
                 sourceAF.getSampleRate(), ssib, sourceAF.getChannels(),
                 sourceAF.getChannels() * (ssib / 8), sourceAF.getSampleRate(), false);
-
+        
         // Decoded stream in desired format
-        ais = AudioSystem.getAudioInputStream(targetAF, ais);
+        ais = AudioSystem.getAudioInputStream(targetAF, in);
 
         cdata = new Complex[bufferLength];
         for (int i=0; i < cdata.length; i++) {
@@ -128,6 +110,21 @@ public class AudioReader extends SoundReader {
 
         sdl = (SourceDataLine) AudioSystem.getLine(lineInfo);
         sdl.open(ais.getFormat(), sdl.getBufferSize());
+        
+        AudioFormat sdlForm = sdl.getFormat();
+        ssib = sdlForm.getSampleSizeInBits();
+        if (ssib == AudioSystem.NOT_SPECIFIED) {
+            ssib = DEFAULT_SSIB;
+        }
+        channelCount = sdlForm.getChannels();
+        if (channelCount == AudioSystem.NOT_SPECIFIED) {
+            channelCount = DEFAULT_CHANNEL_COUNT;
+        }
+        sampleRate = sdlForm.getSampleRate();
+        if (sampleRate == AudioSystem.NOT_SPECIFIED) {
+            sampleRate = DEFAULT_SAMPLE_RATE;
+        }
+        frameSize = channelCount * (ssib / 8);
     }
 
     /**
@@ -148,17 +145,28 @@ public class AudioReader extends SoundReader {
         }
         
         // Prepare Animator's data
-        animator.setAudioInfo(bufferLength, (int)ais.getFormat().getSampleRate());
+        animator.setAudioInfo(bufferLength, sampleRate);
         // Start reading the input audio
         sdl.start();
-        sdl.drain();
-        double[] averageData;
-        int totalReaded = 1, tmp, left;
+        // Wait a moment before reading, reading right after sdl.start() was causing
+        // troubles with large audio files.
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException ex) {
+            System.err.println(ex);
+        }
+        
+        // Init to 1 just to pass the while condition
+        int totalReaded = 1;
+        int totalLen = bufferLength * frameSize;
+        rawData = new byte[totalLen];
+        
         while (running && totalReaded > 0) {
             try {
-                left = bufferLength;
+                int left = totalLen;
                 totalReaded = 0;
-                while (left > 0 && (tmp = ais.read(rawData, bufferLength - left, left)) != -1) {
+                int tmp;
+                while (left > 0 && (tmp = ais.read(rawData, totalLen - left, left)) != -1) {
                     left -= tmp;
                     totalReaded += tmp;
                 }
@@ -167,14 +175,14 @@ public class AudioReader extends SoundReader {
                 totalReaded = 0;
             }
             if (totalReaded > 0) {
-                left = totalReaded;
+                int left = totalReaded;
                 while (left > 0) {
-                    tmp = sdl.write(rawData, totalReaded - left, left);
+                    int tmp = sdl.write(rawData, totalReaded - left, left);
                     left -= tmp;
                 }
 
-                averageData = averageChannels(toChannels(rawData));
-                for (int i = totalReaded - 1; i < cdata.length; i++) {
+                double[] averageData = averageChannels(toChannels(rawData));
+                for (int i = averageData.length - 1; i < cdata.length; i++) {
                     cdata[i].set(0, 0);
                 }
                 for (int i=0; i < cdata.length; i++) {
@@ -183,7 +191,11 @@ public class AudioReader extends SoundReader {
                 }
                 Transform.applyWindow(cdata, window);
                 animator.setData(Transform.transform(cdata));
-                animator.updateState();
+                try {
+                    animator.updateState();
+                } catch (Exception ex) {
+                    System.err.println(ex);
+                }
             }
         }
         // Stop reading audio and close input channels
@@ -202,28 +214,27 @@ public class AudioReader extends SoundReader {
      * @return retrieved audio data as double arrays for every channel
      */
     private double[][] toChannels(byte[] data) {
-        int channelCount = sdl.getFormat().getChannels();
-        int ssib = sdl.getFormat().getSampleSizeInBits();
         int sampleSize = 1 << (ssib - 1);
-        int frameSize = sdl.getFormat().getFrameSize();
-        int frameCount = data.length/frameSize;
+        // For better performance (multiplication instead of division will be used)
+        double sampleSizeDiv = 1.0 / sampleSize;
+        int frameCount = data.length / frameSize;
         int channelSize = frameSize / channelCount;
         
-        double[][] channels = new double[channelCount][data.length];
-        double sampleValue;
+        double[][] channels = new double[channelCount][frameCount];
 
         // For all of the input data
         for (int i = 0, framePos = 0; i < frameCount; i++, framePos += frameSize) {
             // For every channel
             for (int channel = 0, channelPos = 0; channel < channelCount; channel++, channelPos += channelSize) {
-                sampleValue = 0;
-
-                for (int bytePos = 0, bit = 0; bit < ssib; bytePos++, bit += 8) {
-                    sampleValue += data[channelPos + framePos + bytePos] << bit;
+                int sampleValue = 0;
+                
+                for (int bytePos = 0, bit = 0; bit < ssib-8; bytePos++, bit += 8) {
+                    sampleValue |= (data[channelPos + framePos + bytePos] & 0xff) << bit;
                 }
-
+                sampleValue |= (data[channelPos + framePos + ssib/8 - 1]) << (ssib - 8);
+                
                 // Normalize into [-1,1] -- divide by maximum number that can be represented
-                channels[channel][i] = sampleValue / sampleSize;
+                channels[channel][i] = sampleValue * sampleSizeDiv;
             }
         }
 

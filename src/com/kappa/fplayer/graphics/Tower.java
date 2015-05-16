@@ -82,14 +82,16 @@ public class Tower {
      * and 'width' and 'height' as a space, where the tower can be painted.
      * 
      * @param g where this tower should be painted
+     * @param backgroundColor desired color of the background
      * @param x x origin
      * @param y y origin
      * @param width width of the available space
      * @param height height of the available space
      */
-    public synchronized void render(Graphics2D g, int x, int y, int width, int height) {
+    //ALF: Preferably, double buffering should be used
+    public void render(Graphics2D g, Color backgroundColor, int x, int y, int width, int height) {
         // Erasure of previously painted Tower
-        g.setColor(Color.WHITE);
+        g.setColor(backgroundColor);
         g.fillRect(x, y, width, height);
         
         // Height of one tower slab can be counted from total number of 'slabsNum' desired

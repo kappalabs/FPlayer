@@ -26,6 +26,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
  * <a href="http://www.javazoom.net/mp3spi/sources.html">Used MP3 library (MP3SPI 1.9.5) URL</a>
  * <a href="http://www.jthink.net/jaudiotagger/">Used audio tagging library (JAudioTagger)</a>
  * 
+ * <p><b>TODO:</b> Animator's double-buffering
+ * 
  * @author      Vojtech Vasek
  * @version     1.0
  */
@@ -99,7 +101,6 @@ public class FPlayer {
                 terminateFileInput();
                 terminateMicrophoneInput();
                 startItem.setEnabled(true);
-                stopItem.setEnabled(true);
                 tagItem.setEnabled(true);
             }
         });
@@ -113,6 +114,7 @@ public class FPlayer {
                 mr = new MicrophoneReader(anim);
                 mr.start();
             }
+            stopItem.setEnabled(true);
         });
         fileMenu.add(microItem);
         // Cleanup and exit
@@ -135,9 +137,10 @@ public class FPlayer {
             terminateFileInput();
             terminateMicrophoneInput();
             
-            ar = new AudioReader(audioFile);
-            ar.setAnimator(anim);
+            ar = new AudioReader(anim, audioFile);
             ar.start();
+            
+            stopItem.setEnabled(true);
         });
         startItem.setEnabled(false);
         // Stop playing music
@@ -146,7 +149,10 @@ public class FPlayer {
         stopItem.addActionListener((e) -> {
             terminateMicrophoneInput();
             terminateFileInput();
+            
+            stopItem.setEnabled(false);
         });
+        stopItem.setEnabled(false);
         // Open or move to front Tag editor window
         tagItem = new JMenuItem("Tag info");
         tagItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, ActionEvent.CTRL_MASK));
@@ -163,7 +169,7 @@ public class FPlayer {
         audioMenu.add(tagItem);
         jf.setJMenuBar(menuBar);
         
-        anim = new Animator();
+        anim = new Animator(jf.getBackground());
         c.add(anim);
         
         jf.setVisible(true);

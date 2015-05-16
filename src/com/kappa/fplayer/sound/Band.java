@@ -72,7 +72,7 @@ public class Band {
      * @param sampleRate number of samples per second
      * @return array of prepared frequency bands
      */
-    public static Band[] countISOBands(int octaveDenum, int baseFreq, int sampleRate) {
+    public static Band[] countISOBands(int octaveDenum, int baseFreq, float sampleRate) {
         ArrayList<Band> alb = new ArrayList<>();
         double freqCenter = baseFreq;
         int upper, lower = baseFreq;
@@ -95,7 +95,7 @@ public class Band {
             upper = (int)(freqCenter * step20);
             alb.add(new Band(lower, upper));
         }
-        alb.sort((Band o1, Band o2) -> ((Integer)o1.frequencyStart).compareTo(o2.frequencyEnd));
+        alb.sort((Band o1, Band o2) -> ((Integer)o1.frequencyStart).compareTo(o2.frequencyStart));
         
         return alb.toArray(new Band[alb.size()]);
     }

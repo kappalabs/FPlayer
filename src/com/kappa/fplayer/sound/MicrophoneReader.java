@@ -25,20 +25,7 @@ public class MicrophoneReader extends SoundReader {
      * @param animator Animator object, that will serve to show the analysis
      */
     public MicrophoneReader(Animator animator) {
-        this.animator = animator;
-        
-        windowType = DEFAULT_WINDOW_TYPE;
-        bufferLength = DEFAULT_BUFFER_LENGTH;
-        switch (windowType) {
-            case hanning:
-                window = Transform.hanningWindow(bufferLength);
-                break;
-            case hamming:
-                window = Transform.hammingWindow(bufferLength, 0.53836, 0.46164);
-                break;
-            default:
-                window = Transform.rectangularWindow(bufferLength);
-        }
+        super(animator);
     }
     
     /**
@@ -46,7 +33,7 @@ public class MicrophoneReader extends SoundReader {
      */
     @Override
     public void run() {
-        AudioFormat targetAF = new AudioFormat(44100, 8, 1, true, true);
+        AudioFormat targetAF = new AudioFormat(sampleRate, 8, 1, true, true);
 
         TargetDataLine line;
         DataLine.Info info = new DataLine.Info(TargetDataLine.class, targetAF);
@@ -75,10 +62,6 @@ public class MicrophoneReader extends SoundReader {
             while (running) {
                 // Read the next chunk of data
                 numBytesRead = line.read(data, 0, bufferLength);
-                // Can't read more data
-                if (numBytesRead < 0) {
-                    break;
-                }
 
                 for (int i = numBytesRead - 1; i < bufferLength; i++) {
                     cdata[i].set(0, 0);
@@ -89,7 +72,11 @@ public class MicrophoneReader extends SoundReader {
                 }
                 Transform.applyWindow(cdata, window);
                 animator.setData(Transform.transform(cdata));
-                animator.updateState();
+                try {
+                    animator.updateState();
+                } catch (Exception ex) {
+                    System.err.println(ex);
+                }
             }
             animator.performErasure();
         } catch (LineUnavailableException ex) {

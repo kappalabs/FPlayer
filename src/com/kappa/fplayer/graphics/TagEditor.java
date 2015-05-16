@@ -4,6 +4,7 @@ package com.kappa.fplayer.graphics;
 import com.kappa.fplayer.sound.GeneralTagInfo;
 import com.kappa.fplayer.sound.MP3TagInfo;
 import com.kappa.fplayer.sound.TagInfo;
+import com.kappa.fplayer.sound.TagInfo.TagElement;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
@@ -57,7 +58,7 @@ public class TagEditor extends JFrame {
         
         ti.loadInfo(audioFile);
         // Nothing to be shown
-        if (ti.audioInfo.isEmpty() && ti.headerInfo.isEmpty()) {
+        if (ti.getAudioInfo().isEmpty() && ti.getHeaderInfo().isEmpty()) {
             return;
         }
         
@@ -71,30 +72,30 @@ public class TagEditor extends JFrame {
         this.setTitle(audioFile.getName());
         
         JPanel mainPanel = new JPanel(new GridLayout(2, 1));
-        JPanel headerInfoPanel = new JPanel(new GridLayout(ti.headerInfo.size(), 2));
-        JPanel audioInfoPanel = new JPanel(new GridLayout(ti.audioInfo.size(), 2));
+        JPanel headerInfoPanel = new JPanel(new GridLayout(ti.getHeaderInfo().size(), 2));
+        JPanel audioInfoPanel = new JPanel(new GridLayout(ti.getAudioInfo().size(), 2));
         
         TitledBorder titledBorder;
         titledBorder = BorderFactory.createTitledBorder("Header information");
         headerInfoPanel.setBorder(titledBorder);
-        ti.headerInfo.stream().forEach((te) -> {
+        for (TagElement te : ti.getHeaderInfo()) {
             JLabel nameL, valueL;
             nameL = new JLabel(te.name+":");
             valueL = new JLabel(te.value.isEmpty() ? "unknown" : te.value);
             headerInfoPanel.add(nameL);
             headerInfoPanel.add(valueL);
-        });
+        }
         mainPanel.add(headerInfoPanel);
         
         titledBorder = BorderFactory.createTitledBorder("Tags information");
         audioInfoPanel.setBorder(titledBorder);
-        ti.audioInfo.stream().forEach((te) -> {
+        for (TagElement te : ti.getAudioInfo()) {
             JLabel nameL, valueL;
             nameL = new JLabel(te.name+":");
             valueL = new JLabel(te.value.isEmpty() ? "unknown" : te.value);
             audioInfoPanel.add(nameL);
             audioInfoPanel.add(valueL);
-        });
+        };
         mainPanel.add(audioInfoPanel);
         
         add(mainPanel);

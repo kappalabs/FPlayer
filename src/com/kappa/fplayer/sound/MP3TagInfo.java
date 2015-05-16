@@ -4,6 +4,7 @@ package com.kappa.fplayer.sound;
 import java.io.File;
 import java.io.IOException;
 import javax.swing.JOptionPane;
+import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.audio.exceptions.CannotReadException;
 import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
@@ -29,7 +30,11 @@ public class MP3TagInfo extends TagInfo {
     @Override
     public void loadInfo(File audioFile) {
         try {
-            MP3File mpf = (MP3File)AudioFileIO.read(audioFile);
+            AudioFile af = AudioFileIO.read(audioFile);
+            if (!(af instanceof MP3File)) {
+                throw new Exception("Not a MP3 file.");
+            }
+            MP3File mpf = (MP3File)af;
             MP3AudioHeader ah = mpf.getMP3AudioHeader();
             
             loadBasicInfo(audioFile);
@@ -43,6 +48,8 @@ public class MP3TagInfo extends TagInfo {
             audioInfo.add(new TagElement("genre", tag.getFirstGenre()));
         } catch (CannotReadException | IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException ex) {
             JOptionPane.showMessageDialog(null, "Can't retrieve MP3 tags.", "Tag ERROR", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(null, ex.getMessage(), "Tag ERROR", JOptionPane.ERROR_MESSAGE);
         }
     }
 

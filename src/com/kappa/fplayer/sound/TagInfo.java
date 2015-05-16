@@ -28,7 +28,7 @@ public abstract class TagInfo {
     /**
      * Simple storage unit for tags information.
      */
-    public class TagElement {
+    public static class TagElement {
         public String name;
         public String value;
 
@@ -38,8 +38,8 @@ public abstract class TagInfo {
         }
     }
     
-    public List<TagElement> headerInfo = new ArrayList<>();
-    public List<TagElement> audioInfo = new ArrayList<>();
+    protected List<TagElement> headerInfo = new ArrayList<>();
+    protected List<TagElement> audioInfo = new ArrayList<>();
     
     /**
      * Load information, that every audio file should have got.
@@ -61,7 +61,6 @@ public abstract class TagInfo {
                 headerInfo.add(new TagElement("format", ah.getFormat()));
                 headerInfo.add(new TagElement("sample rate", ah.getSampleRate()));
             }
-
             Tag tag = f.getTag();
             if (tag != null) {
                 audioInfo.add(new TagElement("artist", tag.getFirst(FieldKey.ARTIST)));
@@ -87,5 +86,20 @@ public abstract class TagInfo {
      * @param audioFile input audio file
      */
     public abstract void loadInfo(File audioFile);
-    
+
+    public List<TagElement> getAudioInfo() {
+        return audioInfo;
+    }
+
+    public List<TagElement> getHeaderInfo() {
+        return headerInfo;
+    }
+
+    public void setAudioInfo(List<TagElement> audioInfo) {
+        this.audioInfo = audioInfo;
+    }
+
+    public void setHeaderInfo(List<TagElement> headerInfo) {
+        this.headerInfo = headerInfo;
+    }
 }

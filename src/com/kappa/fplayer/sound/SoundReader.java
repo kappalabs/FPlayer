@@ -1,7 +1,7 @@
 package com.kappa.fplayer.sound;
 
+import com.kappa.fplayer.fft.Transform;
 import com.kappa.fplayer.graphics.Animator;
-import java.io.File;
 
 /**
  * General structure of every sound reader, i.e. file, microphone readers...
@@ -21,18 +21,46 @@ public abstract class SoundReader extends Thread {
     /**
      * Must be power of two, 4k is generaly recomended value.
      */
-    public static final int         DEFAULT_BUFFER_LENGTH   = 4096;
+    public static final int         DEFAULT_BUFFER_LENGTH   = 4096/4;
     public static final int         DEFAULT_SAMPLE_RATE     = 44100;
-    public static final WindowType  DEFAULT_WINDOW_TYPE     = WindowType.hanning;
-    
-    public WindowType windowType;
-    public double[]   window;
-    public int        bufferLength;
+    public static final int         DEFAULT_SSIB            = 16;
+    public static final int         DEFAULT_CHANNEL_COUNT   = 2;
+    public static final WindowType  DEFAULT_WINDOW_TYPE     = WindowType.hamming;
+
+    protected WindowType windowType;
+    protected double[]   window;
+    protected int        bufferLength;
+    protected float      sampleRate;
+    protected int        ssib;
+    protected int        channelCount;
+    protected int        frameSize;
     
     Animator animator;
-    public boolean running;
-    public File audioFile;
-    
+    protected volatile boolean running;
+
+    public SoundReader(Animator animator) {
+        this.animator = animator;
+        windowType = DEFAULT_WINDOW_TYPE;
+        bufferLength = DEFAULT_BUFFER_LENGTH;
+        sampleRate = DEFAULT_SAMPLE_RATE;
+        ssib = DEFAULT_SSIB;
+        frameSize = channelCount * (ssib / 8);
+        switch (windowType) {
+            case hanning:
+                window = Transform.hanningWindow(bufferLength);
+                break;
+            case hamming:
+                window = Transform.hammingWindow(bufferLength, 0.53836, 0.46164);
+                break;
+            default:
+                // No window usage (rectangular window has neutral effect)
+                window = Transform.rectangularWindow(bufferLength);
+        }
+        
+        if (animator != null) {
+            animator.setAudioInfo(bufferLength, sampleRate);
+        }
+    }
     
     /**
      * For given multiple channels, return one, that is an average from
@@ -46,6 +74,9 @@ public abstract class SoundReader extends Thread {
             return null;
         }
         
+        // For better performance
+        double lenDiv = 1.0 / channels.length;
+        
         double[] ret = new double[channels[0].length];
         double average;
         for (int i=0; i < channels[0].length; i++) {
@@ -53,7 +84,7 @@ public abstract class SoundReader extends Thread {
             for (double[] channel : channels) {
                 average += channel[i];
             }
-            ret[i] = average / channels.length;
+            ret[i] = average * lenDiv;
         }
         
         return ret;
@@ -64,24 +95,6 @@ public abstract class SoundReader extends Thread {
      */
     public void terminate() {
         running = false;
-    }
-
-    /**
-     * Set a new Animator, which this Sound Reader will be sending data to.
-     * 
-     * @param animator Animator instance
-     */
-    public void setAnimator(Animator animator) {
-        this.animator = animator;
-    }
-
-    /**
-     * Set a new audio file, which this Sound Reader will retrieve data from.
-     * 
-     * @param audioFile audio file
-     */
-    public void setAudioFile(File audioFile) {
-        this.audioFile = audioFile;
     }
     
 }
