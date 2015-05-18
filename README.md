@@ -9,6 +9,10 @@ External packages used in this project are:
  - MP3SPI 1.9.5: http://www.javazoom.net/mp3spi/mp3spi.html
  - + dependencies
 
+Import as NB project
+--------------------
+This project was developed under NetBeans IDE 8.0.2 and this repository contains everything needed to import it by using File -> Open Project.
+
 Build
 -----
-To simply build this project and generate javadoc by yourself with Ant, go to directory */public* and perform the *ant* command here.
+To simply build this project and generate javadoc by yourself with Ant, go to directory */public* and perform the *ant* command here. The resulting executable *jar* file will be placed in */public/build/jar*.

@@ -10,19 +10,23 @@
     <target name="default" depends="clean,jar,javadoc"/>
 
     <!-- set global properties for this build -->
-    <property name="src.dir"     value="src"/>
-    <property name="build.dir"   value="build"/>
-    <property name="lib.dir"     value="lib"/>
-    <property name="main-class"  value="com.kappa.fplayer.FPlayer"/>
-    <property name="classes.dir" value="${build.dir}/classes"/>
-    <property name="jar.dir"     value="${build.dir}/jar"/>
-    <property name="doc.dir"     value="${build.dir}/javadoc"/>
+    <property name="orig-src.dir" value="../src"/>
+    <property name="src.dir"      value="src"/>
+    <property name="build.dir"    value="build"/>
+    <property name="lib.dir"      value="lib"/>
+    <property name="main-class"   value="com.kappa.fplayer.FPlayer"/>
+    <property name="classes.dir"  value="${build.dir}/classes"/>
+    <property name="jar.dir"      value="${build.dir}/jar"/>
+    <property name="doc.dir"      value="${build.dir}/javadoc"/>
 
     <path id="classpath">
         <fileset dir="${lib.dir}" includes="**/*.jar"/>
     </path>
 
     <target name="compile">
+        <copy todir="${src.dir}">
+            <fileset dir="${orig-src.dir}"/>
+        </copy>
         <mkdir dir="${classes.dir}"/>
         <javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="classpath"/>
     </target>
